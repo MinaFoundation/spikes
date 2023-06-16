@@ -1,0 +1,28 @@
+name: 'Deploy Terraform Resources'
+
+on:
+  push:
+    branches: [main]
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+
+  # Will output a list of uniq Terraform directories in json format
+  # e.g. ["/platform/controleplane", "/accounts/1234567890/"]
+  get-changed-terraform-dir:
+    runs-on: mina-default-runners
+    name: Get Changed Terraform Directory
+    steps:
+    - uses: actions/checkout@v3
+    - uses: technote-space/get-diff-action@v4.0.1
+      with:
+        PATTERNS: |
+          +(accounts|platforms)/**/*.tf
+    - name: Check GIT DIFF
+      id: terraform-diffs
+      run: |
+        echo "test"
