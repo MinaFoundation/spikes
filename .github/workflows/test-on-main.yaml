@@ -10,12 +10,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  test-on-main:
     runs-on: minafoundation-default-runners
-    name: Test Run
+    name: Test Run (Main) - ${{ github.ref }}
     steps:
     - uses: actions/checkout@v3
     - name: Echo Test
       id: test
       run: |
-        echo "test"
+        echo "test - ${{ github.ref }}"
