@@ -10,12 +10,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-on-main:
+  test-runner-default:
     runs-on: minafoundation-default-runners
-    name: Test Run (Main) - ${{ github.ref }}
+    name: Test minafoundation-default-runners
     steps:
     - uses: actions/checkout@v3
-    - name: Echo Test
+    - name: Test Default Runner
       id: test
       run: |
-        echo "test - ${{ github.ref }}"
+        echo "test"
+  test-runner-large:
+    runs-on: minafoundation-large-runners
+    name: Test minafoundation-large-runners
+    steps:
+    - uses: actions/checkout@v3
+    - name: Test Large Runner
+      id: test
+      run: |
+        echo "test"
+  test-runner-xlarge:
+    runs-on: minafoundation-xlarge-runners
+    name: Test minafoundation-xlarge-runners
+    steps:
+    - uses: actions/checkout@v3
+    - name: Test xLarge Runner
+      id: test
+      run: |
+        echo "test"
+  test-runner-2xlarge:
+    runs-on: minafoundation-2xlarge-runners
+    name: Test minafoundation-2xlarge-runners
+    steps:
+    - uses: actions/checkout@v3
+    - name: Test 2xLarge Runner
+      id: test
+      run: |
+        echo "test"
