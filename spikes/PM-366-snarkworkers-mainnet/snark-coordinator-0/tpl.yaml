@@ -1,0 +1,233 @@
+---
+# Source: mina-daemon/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-mainnet-mina-snark-coordinator-0
+  labels:
+    app: sandbox-mainnet-mina-snark-coordinator-0
+---
+# Source: mina-daemon/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sandbox-mainnet-mina-snark-coordinator-0
+data:
+  wallet-password: TFB9MkRyYDdhOV5iMExCTUhNOHZlWV9n
+  libp2p-password: MXpCaWIzNj9aMmR4b3zCoykyUzcqQWBJSA==
+  snark-coordinator-0-key: eyJib3hfcHJpbWl0aXZlIjoieHNhbHNhMjBwb2x5MTMwNSIsInB3X3ByaW1pdGl2ZSI6ImFyZ29uMmkiLCJub25jZSI6Ijc1OWJTUnRGRjJLMUVqS0t0dWE2aGI1TkNoVlVtMjI2VGptU1NCZiIsInB3c2FsdCI6IkIxUVlQTktxdkxhRlRWV1g5TnEyamt0QWI1dTciLCJwd2RpZmYiOlsxMzQyMTc3MjgsNl0sImNpcGhlcnRleHQiOiJEdEF5R2JMUHhzajJaY2ppYlB6ZWNTUEF2QUZ2alJpNjZScE0zV0RUTHUxSG5Ic1NjbThqeWs0ckZnQzhxRUd1RjNKSlN2UnJqIn0=
+  snark-coordinator-0-key.pub: QjYycWlhRHA4NnVMeTNYWkJycDh4dWhOb2ZQbkJTRHhHV2lqSGJVYmhDckpzeFc2M05ackp6cQ==
+  snark-coordinator-0-libp2p: eyJib3hfcHJpbWl0aXZlIjoieHNhbHNhMjBwb2x5MTMwNSIsInB3X3ByaW1pdGl2ZSI6ImFyZ29uMmkiLCJub25jZSI6IjdqSEh1WUh3U2JtSjU1OU5ZNFJGcHB3V0ZBdnBNcFMyUzI3ZlZtciIsInB3c2FsdCI6IjhYeldRd1FUVUgxaTZXajlFSnk3S3BQUlV1blIiLCJwd2RpZmYiOlsxMzQyMTc3MjgsNl0sImNpcGhlcnRleHQiOiI3VW83QkEyaXBYdjh3WDViaVdrVWM0eVI3b3RSOHZRaGFGdjVOVnBCQVhyRTdoVHNCTWJRQjNlOTFncG1uYXhVVUFwQUV6ZG1KUXBTNURvVGpUR1Y3aXpmOEhrOHpRMmZNVlZiQnhGWml2UVhTWkQ2dEpGdk4ycVJLb3R2YlZXUjRxMkF3VkhBdDh2VUVId1B3M0RnM0VLd3JMUkM0aVVCRURBaVExekdMWjh1M1FuOHdFNTRMZGhkWk5ucW1hVnBZZEd2aFVLdHpIVjV6c3g3Wkx4UFREZWthR3V4YVNrbW5KVk0xOU4zdUNKWWVIOHlLZHNLOXJISnZGaEszd1RFa0FMVXBuSEVnSjFuV2Z1OFJrSks0YjJZS2FaTUI0S24zcFlVWSJ9
+  snark-coordinator-0-libp2p.peerid: MTJEM0tvb1dEc1dSeXZIeXZxRENiVmt1NGRqbmNKNnVTc2R5UFVtaGdSOHJOcFhzdVc0eA==
+---
+# Source: mina-daemon/templates/service-daemon.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox-mainnet-mina-snark-coordinator-0
+  labels:
+    app: sandbox-mainnet-mina-snark-coordinator-0
+    testnet: mainnet
+    role: snark-coordinator
+spec:
+  type: "ClusterIP"
+  publishNotReadyAddresses: true
+  selector:
+    app: sandbox-mainnet-mina-snark-coordinator-0
+  ports:
+    - name: tcp-p2p
+      port: 10801
+      targetPort: external-port
+    - name: client
+      port: 8301
+      targetPort: client-port
+    - name: metrics-port
+      port: 10001
+      targetPort: metrics-port
+---
+# Source: mina-daemon/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-mainnet-mina-snark-coordinator-0
+  labels:
+    app: sandbox-mainnet-mina-snark-coordinator-0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sandbox-mainnet-mina-snark-coordinator-0
+  template:
+    metadata:
+      labels:
+        app: sandbox-mainnet-mina-snark-coordinator-0
+        testnet: mainnet
+        role: snark-coordinator
+        version: 1.4.0-c9
+        syncStatus: INIT
+      annotations:
+        karpenter.sh/do-not-evict: "true"
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "10001"
+        prometheus.io/path: '/metrics'
+    spec:
+      serviceAccountName: sandbox-mainnet-mina-snark-coordinator-0
+      initContainers:
+        - name: fix-libp2p-perms
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - cp /libp2p-keys/* /root/libp2p-keys && chmod -R 0700 /root/libp2p-keys/
+          volumeMounts:
+            - name: sandbox-mainnet-mina-snark-coordinator-0-mounted-libp2p-keys
+              mountPath: /libp2p-keys
+            - name: sandbox-mainnet-mina-snark-coordinator-0-fixed-libp2p-keys
+              mountPath: /root/libp2p-keys
+        - name: fix-mina-perms
+          image: busybox:latest
+          command:
+            - sh
+            - -c
+            - cp /mina-keys/* /root/mina-keys/ && chmod -R 0700 /root/mina-keys/
+          volumeMounts:
+            - name: sandbox-mainnet-mina-snark-coordinator-0-mounted-mina-keys
+              mountPath: /mina-keys
+            - name: sandbox-mainnet-mina-snark-coordinator-0-fixed-mina-keys
+              mountPath: /root/mina-keys
+        - name: get-genesis-ledger
+          image: busybox:latest
+          command:
+            - wget
+            - -O
+            - /root/.mina-config/genesis_ledger.json
+            - http://673156464838-mina-genesis-ledgers.s3-website-us-west-2.amazonaws.com/mainnet/genesis_ledger.json
+          volumeMounts:
+            - name: sandbox-mainnet-mina-snark-coordinator-0-genesis-ledger-dir
+              mountPath: /root/.mina-config
+      containers:
+        - name: mina
+          resources:
+            limits:
+              memory: 20Gi
+              cpu: 12
+            requests:
+              memory: 16Gi
+              cpu: 8
+          image: minaprotocol/mina-daemon:1.4.0-c980ba8-bullseye-mainnet
+          command: [mina]
+          args: [
+
+            "daemon",
+            "--file-log-level", "Debug",
+            "--log-level", "Debug","--client-port", "$(DAEMON_CLIENT_PORT)",
+            "--rest-port", "$(MINA_GRAPHQL_PORT)",
+            "--external-port", "$(DAEMON_EXTERNAL_PORT)",
+            "--metrics-port", "$(DAEMON_METRICS_PORT)",
+            "--max-connections", "200",
+            "--peer-list-url", "https://storage.googleapis.com/mina-seed-lists/mainnet_seeds.txt",
+            "--config-file", "/root/.mina-config/genesis_ledger.json",
+            "--discovery-keypair", "/root/libp2p-keys/snark-coordinator-0-libp2p",
+            "--snark-worker-fee", "0.001",
+            "--run-snark-coordinator", "B62qiaDp86uLy3XZBrp8xuhNofPnBSDxGWijHbUbhCrJsxW63NZrJzq",
+            "--peer", "/dns4/seed-1.mainnet.o1test.net/tcp/10000/p2p/12D3KooWCa1d7G3SkRxy846qTvdAFX69NnoYZ32orWVLqJcDVGHW",
+            "--peer", "/dns4/seed-2.mainnet.o1test.net/tcp/10001/p2p/12D3KooWK4NfthViCTyLgVQa1WvqDC1NccVxGruCXCZUt3GqvFvn",
+            "--peer", "/dns4/seed-3.mainnet.o1test.net/tcp/10002/p2p/12D3KooWNofeYVAJXA3WGg2qCDhs3GEe71kTmKpFQXRbZmCz1Vr7",
+            "--enable-peer-exchange", "true",
+            "--log-precomputed-blocks", "true",
+            "--work-selection", "seq",
+            "--log-json"
+          ]
+          env:
+            - name: MINA_NETWORK
+              value: mainnet
+            - name: MINA_GRAPHQL_PORT
+              value: "3085"
+            - name: DAEMON_CLIENT_PORT
+              value: "8301"
+            - name: DAEMON_METRICS_PORT
+              value: "10001"
+            - name: MINA_CLIENT_TRUSTLIST
+              value: "10.0.0.0/8"
+            - name: DAEMON_EXTERNAL_PORT
+              value: "10801"
+            - name: MINA_LIBP2P_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sandbox-mainnet-mina-snark-coordinator-0
+                  key: "libp2p-password"
+            - name: MINA_PRIVKEY_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sandbox-mainnet-mina-snark-coordinator-0
+                  key: "wallet-password"
+            - name: RAYON_NUM_THREADS
+              value: "6"
+          ports:
+            - name: client-port
+              protocol: TCP
+              containerPort: 8301
+            - name: graphql-port
+              protocol: TCP
+              containerPort: 3085
+            - name: metrics-port
+              protocol: TCP
+              containerPort: 10001
+            - name: external-port
+              protocol: TCP
+              containerPort: 10801          
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: sandbox-mainnet-mina-snark-coordinator-0-fixed-libp2p-keys
+              mountPath: /root/libp2p-keys
+            - name: sandbox-mainnet-mina-snark-coordinator-0-fixed-mina-keys
+              mountPath: /root/mina-keys
+            - name: sandbox-mainnet-mina-snark-coordinator-0-genesis-ledger-dir
+              mountPath: /root/.mina-config
+      volumes:
+        - name: sandbox-mainnet-mina-snark-coordinator-0-mounted-mina-keys
+          secret:
+            secretName: sandbox-mainnet-mina-snark-coordinator-0
+            defaultMode: 0600
+            items:
+              - key: snark-coordinator-0-key
+                path: snark-coordinator-0-key
+              - key: snark-coordinator-0-key.pub
+                path: snark-coordinator-0-key.pub
+        - name: sandbox-mainnet-mina-snark-coordinator-0-fixed-mina-keys
+          emptyDir: {}
+        - name: sandbox-mainnet-mina-snark-coordinator-0-genesis-ledger-dir
+          emptyDir: {}
+        - name: sandbox-mainnet-mina-snark-coordinator-0-mounted-libp2p-keys
+          secret:
+            secretName: sandbox-mainnet-mina-snark-coordinator-0
+            defaultMode: 0600
+            items:
+              - key: snark-coordinator-0-libp2p
+                path: snark-coordinator-0-libp2p
+              - key: snark-coordinator-0-libp2p.peerid
+                path: snark-coordinator-0-libp2p.peerid
+        - name: sandbox-mainnet-mina-snark-coordinator-0-fixed-libp2p-keys
+          emptyDir: {}
+---
+# Source: mina-daemon/templates/service-monitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sandbox-mainnet-mina-snark-coordinator-0
+  labels:
+    app: sandbox-mainnet-mina-snark-coordinator-0
+spec:
+  endpoints:
+    - interval: 30s
+      port: metrics-port
+  selector:
+    matchLabels:
+      app: sandbox-mainnet-mina-snark-coordinator-0
+  namespaceSelector:
+    matchNames:
+    - mainnet
+  targetLabels:
+  - testnet
+  - role
+

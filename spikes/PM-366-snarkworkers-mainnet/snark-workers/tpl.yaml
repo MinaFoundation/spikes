@@ -1,0 +1,147 @@
+---
+# Source: mina-daemon/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-mainnet-mina-snark-worker
+  labels:
+    app: sandbox-mainnet-mina-snark-worker
+---
+# Source: mina-daemon/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sandbox-mainnet-mina-snark-worker
+data:
+  wallet-password: 
+  libp2p-password: 
+  snark-worker-key: 
+  snark-worker-key.pub: 
+  snark-worker-libp2p: 
+  snark-worker-libp2p.peerid:
+---
+# Source: mina-daemon/templates/service-daemon.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox-mainnet-mina-snark-worker
+  labels:
+    app: sandbox-mainnet-mina-snark-worker
+    testnet: mainnet
+    role: snark-worker
+spec:
+  type: "ClusterIP"
+  publishNotReadyAddresses: true
+  selector:
+    app: sandbox-mainnet-mina-snark-worker
+  ports:
+    - name: tcp-p2p
+      port: 10801
+      targetPort: external-port
+    - name: client
+      port: 8301
+      targetPort: client-port
+    - name: metrics-port
+      port: 10001
+      targetPort: metrics-port
+---
+# Source: mina-daemon/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-mainnet-mina-snark-worker
+  labels:
+    app: sandbox-mainnet-mina-snark-worker
+spec:
+  replicas: 6
+  selector:
+    matchLabels:
+      app: sandbox-mainnet-mina-snark-worker
+  template:
+    metadata:
+      labels:
+        app: sandbox-mainnet-mina-snark-worker
+        testnet: mainnet
+        role: snark-worker
+        version: 1.4.0-c9
+        syncStatus: INIT
+      annotations:
+        karpenter.sh/do-not-evict: "true"
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "10001"
+        prometheus.io/path: '/metrics'
+    spec:
+      serviceAccountName: sandbox-mainnet-mina-snark-worker
+      initContainers:
+        
+        
+        
+      containers:
+        - name: mina
+          resources:
+            limits:
+              memory: 6Gi
+              cpu: 10
+            requests:
+              memory: 6Gi
+              cpu: 10
+          image: minaprotocol/mina-daemon:1.4.0-c980ba8-bullseye-mainnet
+          command: [mina]
+          args: [
+            "internal", "snark-worker",
+            "--daemon-address", "sandbox-mainnet-mina-snark-coordinator-0:8301",
+            "--proof-level", "full",
+          ]
+          env:
+            - name: MINA_NETWORK
+              value: mainnet
+            - name: MINA_GRAPHQL_PORT
+              value: "3085"
+            - name: DAEMON_CLIENT_PORT
+              value: "8301"
+            - name: DAEMON_METRICS_PORT
+              value: "10001"
+            - name: MINA_CLIENT_TRUSTLIST
+              value: "10.0.0.0/8"
+            - name: DAEMON_EXTERNAL_PORT
+              value: "10801"
+            - name: RAYON_NUM_THREADS
+              value: "8"
+          ports:
+            - name: client-port
+              protocol: TCP
+              containerPort: 8301
+            - name: graphql-port
+              protocol: TCP
+              containerPort: 3085
+            - name: metrics-port
+              protocol: TCP
+              containerPort: 10001
+            - name: external-port
+              protocol: TCP
+              containerPort: 10801          
+          imagePullPolicy: Always
+          volumeMounts:
+      volumes:
+---
+# Source: mina-daemon/templates/service-monitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sandbox-mainnet-mina-snark-worker
+  labels:
+    app: sandbox-mainnet-mina-snark-worker
+spec:
+  endpoints:
+    - interval: 30s
+      port: metrics-port
+  selector:
+    matchLabels:
+      app: sandbox-mainnet-mina-snark-worker
+  namespaceSelector:
+    matchNames:
+    - mainnet
+  targetLabels:
+  - testnet
+  - role
+
