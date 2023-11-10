@@ -52,7 +52,7 @@ releases:
         workSelection: seq
         metrics:
           enabled: true
-        snarkWorkerFee: '0.001'
+        snarkWorkerFee: "0.01"
         libp2pKeys:
           enabled: true
           legacy: true
@@ -64,7 +64,7 @@ releases:
           discoveryLibp2pPeerid: {{ .Values.keys.discoveryLibp2pPeerid | fetchSecretValue }}
           walletPassword: {{ .Values.keys.walletPassword | fetchSecretValue | quote }}
           walletKey: {{ .Values.keys.walletKey | fetchSecretValue | quote }}
-          walletPub: {{ .Values.keys.walletPub | fetchSecretValue}}
+          walletPub: "B62qiburnzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzmp7r7UN6X"
         extraEnvVars:
           - name: RAYON_NUM_THREADS
             value: "6"

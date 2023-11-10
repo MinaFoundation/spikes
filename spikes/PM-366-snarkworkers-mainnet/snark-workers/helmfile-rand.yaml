@@ -10,13 +10,13 @@ environments:
           image: minaprotocol/mina-daemon:1.4.0-c980ba8-bullseye-mainnet
 ---
 releases:
-- name: "{{ .Values.testnet.platform }}-{{ .Values.testnet.name }}-mina-snark-worker"
+- name: "{{ .Values.testnet.platform }}-{{ .Values.testnet.name }}-mina-snark-worker-rand"
   namespace: "{{ .Values.testnet.name }}"
   chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-daemon?ref=main
   values:
     - deployment:
         testnet: mainnet
-        name: "{{ .Values.testnet.name }}-mina-snark-worker"
+        name: "{{ .Values.testnet.name }}-mina-snark-worker-rand"
         image: {{ .Values.testnet.image }}
         customEntrypoint:
           enabled: true
@@ -28,7 +28,7 @@ releases:
         role: snark-worker
         daemonMode:
           snarkWorker: true
-        replicas: 6
+        replicas: 9
         logLevel: Debug
         metrics:
           enabled: true
@@ -37,7 +37,7 @@ releases:
           legacy: true
         walletKeys:
           enabled: false
-        daemonAddress: sandbox-mainnet-mina-snark-coordinator-0:8301
+        daemonAddress: sandbox-mainnet-mina-snark-coordinator-1:8301
         proofLevel: full
         extraEnvVars:
           - name: RAYON_NUM_THREADS
