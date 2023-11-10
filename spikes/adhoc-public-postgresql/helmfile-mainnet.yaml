@@ -1,0 +1,123 @@
+repositories:
+- name: mina
+  url: https://coda-charts.storage.googleapis.com
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
+environments: 
+  default: 
+    values:
+      - seed:
+          walletPassword: ref+awssecrets://seed-1?region=us-west-2&mode=singleparam#/key-password
+          libp2pPassword: ref+awssecrets://seed-1?region=us-west-2&mode=singleparam#/libp2p-password
+          walletKey: ref+awssecrets://seed-1?region=us-west-2&mode=singleparam#/seed-1-key
+          walletPub: ref+awssecrets://seed-1?region=us-west-2&mode=singleparam#/seed-1-key.pub
+          discoveryLibp2p: ref+awssecrets://seed-1?region=us-west-2&mode=singleparam#/seed-1-libp2p
+          discoveryLibp2pPeerid: ref+awssecrets://seed-1?region=us-west-2&mode=singleparam#/seed-1-libp2p.peerid
+      - releases:
+          mainnetArchive:
+            name: mainnet-mina-archive
+            image: 1.4.0-c980ba8-bullseye
+            postgresPassword: ref+awssecrets://berkeley.archive.postgres?region=us-west-2&mode=singleparam#/password
+          mainnetDaemon:
+            name: mainnet-mina-daemon
+            image: 1.4.0-c980ba8-bullseye-mainnet
+
+---
+releases:
+- name: {{ .Values.releases.mainnetArchive.name }}
+  namespace: mainnet-archive-temp
+  chart: git::ssh://git@github.com/MinaFoundation/helm-charts.git@mina-archive?ref=main
+  version: 2.0.0
+  values:
+    - archive:
+        testnet: mainnet
+        initFromDump:
+          enabled: true
+        image: minaprotocol/mina-archive:{{ .Values.releases.mainnetArchive.image }}
+        ports:
+          server: 3086
+        metrics:
+          enabled: true
+    - postgresql:
+        primary:
+          service:
+            type: LoadBalancer
+            annotations:
+              external-dns.alpha.kubernetes.io/hostname: mainnet-archive-temp.minaprotocol.network
+              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+              service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+              service.beta.kubernetes.io/aws-load-balancer-type: external
+
+          initdb:
+            password: {{ .Values.releases.mainnetArchive.postgresPassword | fetchSecretValue }}
+        auth:
+          password: {{ .Values.releases.mainnetArchive.postgresPassword | fetchSecretValue }}
+          database: archive_balances_migrated
+
+- name: {{ .Values.releases.mainnetDaemon.name }}
+  namespace: mainnet-archive-temp
+  chart: git::ssh://git@github.com/MinaFoundation/helm-charts.git@mina-daemon?ref=main
+  version: 2.1.0
+  needs:
+    - {{ .Values.releases.mainnetArchive.name }}
+  values:
+    - deployment:
+        testnet: "mainnet"
+        name: {{ .Values.releases.mainnetDaemon.name }}
+        image: minaprotocol/mina-daemon:{{ .Values.releases.mainnetDaemon.image }}
+        customEntrypoint:
+          enabled: true
+          entrypoint: "mina"
+        peerListURL: "https://storage.googleapis.com/seed-lists/mainnet_seeds.txt"
+    - podAnnotations:
+        karpenter.sh/do-not-evict: "true"
+    - node:
+        name: "node"
+        role: "sandbox"
+        replicas: 1
+        exposeGraphql: true
+        logLevel: Info
+        fileLogLevel: Info
+        metrics:
+          enabled: true
+        archive:
+          enabled: true
+          address: "{{ .Values.releases.mainnetArchive.name }}:3086"
+        libp2pKeys:
+          enabled: true
+          legacy: true
+        walletKeys:
+          enabled: false
+        secrets:
+          walletPassword: {{ .Values.seed.walletPassword | fetchSecretValue | quote }}
+          libp2pPassword: {{ .Values.seed.libp2pPassword | fetchSecretValue | quote }}
+          walletKey: {{ .Values.seed.walletKey | fetchSecretValue | quote }}
+          walletPub: {{ .Values.seed.walletPub | fetchSecretValue | quote }}
+          discoveryLibp2p: {{ .Values.seed.discoveryLibp2p | fetchSecretValue | quote }}
+          discoveryLibp2pPeerid: {{ .Values.seed.discoveryLibp2pPeerid | fetchSecretValue | quote }}
+        extraEnvVars:
+          - name: RAYON_NUM_THREADS
+            value: "3"
+
+    - resources:
+        memoryRequest: "18.0Gi"
+        cpuRequest: "4"
+        ephemeralStorageRequest:
+        memoryLimit: "20.0Gi"
+        cpuLimit: "8"
+    - service:
+        graphql:
+          type: LoadBalancer 
+          loadBalancerClass: service.k8s.aws/nlb
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: mainnet-archive-temp-gql.minaprotocol.network
+            service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+            service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: '*'
+            service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+            service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    - healthcheck:
+        enabled: true
+        failureThreshold: 60
+        periodSeconds: 5
+        initialDelaySeconds: 30
