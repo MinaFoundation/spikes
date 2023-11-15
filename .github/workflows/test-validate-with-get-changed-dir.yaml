@@ -1,7 +1,7 @@
 name: 'Validate Kubernetes Resources'
 
 on:
-  pull_request:
+  workflow_dispatch:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
@@ -10,24 +10,24 @@ concurrency:
 
 jobs:
 
+  changes:
+    runs-on: minafoundation-default-runners
+    outputs:
+      packages: ${{ steps.filter.outputs.paths_changed }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Annotate PR
+        id: filter
+        uses: fabidick22/detect-changes-action@v1
+
   # Will run helmfile or helm template and kubeconform for each previous output
   validate-kubernetes-manifests:
     runs-on: minafoundation-default-runners
     name: 🧐 Check Kubernetes manifests
-    needs: get-changed-dir
-    if: needs.get-changed-dir.outputs.changed_dir_list != '[]' && needs.get-changed-dir.outputs.changed_dir_list != ''
+    needs: changes
     strategy:
-        matrix:
-          directories: ${{ fromJson(needs.get-changed-dir.outputs.changed_dir_list) }}
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Diffset
-        id: diffset
-        uses: softprops/diffset@v1
-        with:
-          base: develop
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-      - name: Other work
-        run: ls -al ${{ steps.diffset.outputs.files }}
+      - run: echo '${{ matrix.package }}'
+
