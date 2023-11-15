@@ -39,4 +39,3 @@ jobs:
             EXISTING_CHANGED_DIR_LIST=$(comm -12 <(echo "$CHANGED_DIR_LIST" | tr ' ' '\n' | sort) <(echo "$EXISTING_DIR_LIST" | tr ' ' '\n' | sort))
             echo $EXISTING_CHANGED_DIR_LIST
             echo "existing_changed_dir_list=$EXISTING_CHANGED_DIR_LIST" >> $GITHUB_OUTPUT
-
