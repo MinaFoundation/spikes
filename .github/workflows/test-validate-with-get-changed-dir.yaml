@@ -1,7 +1,7 @@
 name: 'Validate Kubernetes Resources'
 
 on:
-  workflow_dispatch:
+  pull_request:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
@@ -9,25 +9,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  changes:
+  get-changed-directories:
+    name: Get changed directories
     runs-on: minafoundation-default-runners
     outputs:
-      packages: ${{ steps.filter.outputs.paths_changed }}
+      matrix: ${{ steps.get-changed-directories.outputs.changed_dir_list }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Annotate PR
-        id: filter
-        uses: fabidick22/detect-changes-action@v1
-
-  # Will run helmfile or helm template and kubeconform for each previous output
-  validate-kubernetes-manifests:
-    runs-on: minafoundation-default-runners
-    name: 🧐 Check Kubernetes manifests
-    needs: changes
-    strategy:
-      matrix:
-        package: ${{ fromJSON(needs.changes.outputs.packages) }}
-    steps:
-      - run: echo '${{ matrix.package }}'
-
+      - name: 📥 Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - name: 🗂️ Get changed directories
+        id: get-changed-directories
+        env:
+          PATTERN: ${{ inputs.pattern }}
+        run: |
+            event_type=${{ github.event_name }} # push, pull_request
+            if [ "$event_type" = "pull_request" ]; then
+                BASE_REF=${{ github.event.pull_request.base.ref }}
+                git fetch origin $BASE_REF
+                GIT_DIFF=$(git diff --name-only origin/$BASE_REF | grep -E "$PATTERN" | xargs -I {} dirname {} | sort -u)
+            else
+                BASE_REF=$(git log --oneline | sed -n '2p' | awk '{print $1}') # Get previous commit hash
+                GIT_DIFF=$(git diff --name-only $BASE_REF | grep -E "$PATTERN" | xargs -I {} dirname {} | sort -u)
+            fi
+            [ -z "$GIT_DIFF" ] && echo "changed_dir_list=[]" >> $GITHUB_OUTPUT && exit 0
+            CHANGED_DIR_LIST="[$(echo "$GIT_DIFF" | sed 's/ /\n/g' | awk '{printf "\"%s\", ", $0}' | sed 's/, $/\n/')]"
+            EXISTING_DIR_LIST=$(git ls-tree -d --name-only -r HEAD)
+            EXISTING_CHANGED_DIR_LIST=$(comm -12 <(echo "$CHANGED_DIR_LIST" | tr ' ' '\n' | sort) <(echo "$EXISTING_DIR_LIST" | tr ' ' '\n' | sort))
+            echo $EXISTING_CHANGED_DIR_LIST
+            echo "existing_changed_dir_list=$EXISTING_CHANGED_DIR_LIST" >> $GITHUB_OUTPUT
