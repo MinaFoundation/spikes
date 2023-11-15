@@ -1,0 +1,20 @@
+on:
+  pull_request:
+
+jobs:
+  get-changed-directories:
+    name: Get changed dir
+    uses: MinaFoundation/workflows/.github/workflows/get-changed-directories-workflow.yaml@main
+    with:
+      pattern: '^[^\.].*.yaml$'
+
+  print:
+    name: Print prev job output
+    needs: get-changed-directories
+    runs-on: minafoundation-default-runners
+    strategy:
+      matrix:
+        directories: ${{ fromJson(needs.get-changed-directories.outputs.matrix) }}
+    steps:
+      - name: Print
+        run: echo '${{ matrix.directories }}'

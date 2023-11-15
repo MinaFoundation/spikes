@@ -1,12 +1,14 @@
-name: 'Validate Kubernetes Resources'
-
 on:
-  pull_request:
-
-# This allows a subsequently queued workflow run to interrupt previous runs
-concurrency:
-  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
-  cancel-in-progress: true
+  workflow_call:
+    inputs:
+      pattern:
+        description: 'Regex pattern to match the directory names'
+        required: true
+        type: string
+    outputs:
+      changed_dir_list:
+        description: 'List of changed directories'
+        value: ${{ jobs.get-changed-directories.outputs.matrix }}
 
 jobs:
   get-changed-directories:
@@ -22,7 +24,7 @@ jobs:
       - name: 🗂️ Get changed directories
         id: get-changed-directories
         env:
-          PATTERN: ${{ inputs.pattern }}
+          PATTERN: '^[^\.].*.yaml$'
         run: |
             event_type=${{ github.event_name }} # push, pull_request
             if [ "$event_type" = "pull_request" ]; then
@@ -38,22 +40,6 @@ jobs:
             EXISTING_DIR_LIST=$(git ls-tree -d --name-only -r HEAD)
             EXISTING_CHANGED_DIR_LIST=$(comm -12 <(echo "$CHANGED_DIR_LIST" | tr ' ' '\n' | sort) <(echo "$EXISTING_DIR_LIST" | tr ' ' '\n' | sort))
             echo "$EXISTING_CHANGED_DIR_LIST"
-            echo "changed_dir_list=$EXISTING_CHANGED_DIR_LIST" >> $GITHUB_OUTPUT
+            echo "changed_dir_list=$CHANGED_DIR_LIST" >> $GITHUB_OUTPUT
 
-  get-changed-dir:
-    name: Get changed dir
-    uses: get-changed-directories
-    with:
-      pattern: '.*'
 
-  print:
-    name: Print prev job output
-    needs: get-changed-dir
-    runs-on: minafoundation-default-runners
-    strategy:
-      matrix:
-        directories: ${{ fromJson(needs.get-changed-dir.outputs.changed_dir_list) }}
-    steps:
-      - name: Print
-        run: echo '${{ matrix.directories }}'
-          
