@@ -19,3 +19,24 @@ jobs:
       id: test
       run: |
         echo "test"
+        docker build -t test .
+  test-runner-default2:
+    runs-on: minafoundation-default-runners
+    name: Test minafoundation-default-runners2
+    steps:
+    - uses: actions/checkout@v3
+    - name: Test Default Runner
+      id: test2
+      run: |
+        echo "test"
+        docker build -t test .
+  test-runner-default3:
+    runs-on: minafoundation-default-runners
+    name: Test minafoundation-default-runners3
+    steps:
+    - uses: actions/checkout@v3
+    - name: Test Default Runner
+      id: test3
+      run: |
+        echo "test"
+        docker build -t test .
