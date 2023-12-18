@@ -1,0 +1,152 @@
+---
+# Source: node-stats-collector/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payload-inspector-node-stats-collector
+  labels:
+    helm.sh/chart: node-stats-collector-0.2.0
+    app.kubernetes.io/name: payload-inspector
+    app.kubernetes.io/instance: payload-inspector
+    app.kubernetes.io/version: "0.3.0"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: node-stats-collector/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: payload-inspector-node-stats-collector
+  labels:
+    helm.sh/chart: node-stats-collector-0.2.0
+    app.kubernetes.io/name: payload-inspector
+    app.kubernetes.io/instance: payload-inspector
+    app.kubernetes.io/version: "0.3.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: payload-inspector
+    app.kubernetes.io/instance: payload-inspector
+---
+# Source: node-stats-collector/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payload-inspector-node-stats-collector
+  labels:
+    helm.sh/chart: node-stats-collector-0.2.0
+    app.kubernetes.io/name: payload-inspector
+    app.kubernetes.io/instance: payload-inspector
+    app.kubernetes.io/version: "0.3.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payload-inspector
+      app.kubernetes.io/instance: payload-inspector
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "8080"
+        prometheus.io/path: '/metrics'
+
+      labels:
+        app.kubernetes.io/name: payload-inspector
+        app.kubernetes.io/instance: payload-inspector
+    spec:
+      serviceAccountName: payload-inspector-node-stats-collector
+      securityContext:
+        {}
+      containers:
+        - name: payload-inspector
+          securityContext:
+            {}
+          image: "replace-this-with-payload-inspector-image"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            timeoutSeconds: 5
+          env:
+            - name: PORT
+              value: "8080"
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+# Source: node-stats-collector/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payload-inspector-node-stats-collector
+  labels:
+    helm.sh/chart: node-stats-collector-0.2.0
+    app.kubernetes.io/name: payload-inspector
+    app.kubernetes.io/instance: payload-inspector
+    app.kubernetes.io/version: "0.3.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:673156464838:certificate/5432af1a-b331-4970-abf4-c168c5e69784
+    alb.ingress.kubernetes.io/group.name: sandbox
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/preserve-client-ip: "true"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/target-type: ip
+    external-dns.alpha.kubernetes.io/hostname: uptime-payload-inspector.minaprotocol.tools
+spec:
+  ingressClassName: alb
+  rules:
+    - host: "uptime-payload-inspector.minaprotocol.tools"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: payload-inspector-node-stats-collector
+                port:
+                  number: 8080
+---
+# Source: node-stats-collector/templates/service-monitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: payload-inspector-node-stats-collector
+  labels:
+    app:
+    helm.sh/chart: node-stats-collector-0.2.0
+    app.kubernetes.io/name: payload-inspector
+    app.kubernetes.io/instance: payload-inspector
+    app.kubernetes.io/version: "0.3.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  endpoints:
+    - interval: 30s
+      port: http
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payload-inspector
+      app.kubernetes.io/instance: payload-inspector
