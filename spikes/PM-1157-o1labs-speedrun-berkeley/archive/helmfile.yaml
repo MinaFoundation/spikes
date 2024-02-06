@@ -9,7 +9,7 @@ environments:
       - database:
           username: ref+awssecrets://partners/qanet/archive?region=us-west-2#/username
           password: ref+awssecrets://partners/qanet/archive?region=us-west-2#/password
-          database: archive_balances_migrated
+          database: archive
       - testnet:
           name: o1labs-speedrun-berkeley
           platform: sandbox
