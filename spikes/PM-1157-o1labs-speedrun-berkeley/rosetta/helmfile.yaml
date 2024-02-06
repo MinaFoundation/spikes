@@ -1,0 +1,81 @@
+---
+environments:
+  default:
+    values:
+      - testnet:
+          name: o1labs-speedrun-berkeley
+          platform: sandbox
+          repository: gcr.io/o1labs-192920/mina-rosetta
+          tag: 1.4.0beta2-testing-hard-fork-internal-e65c8bc-focal
+      - database:
+          host: archive-postgresql
+          port: 5432
+          username: ref+awssecrets://partners/qanet/archive?region=us-west-2#/username
+          password: ref+awssecrets://partners/qanet/archive?region=us-west-2#/password
+          database: archive_balances_migrated
+      - github:
+          accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
+---
+releases:
+- name: "rosetta-online"
+  namespace: "{{ .Values.testnet.name }}"
+  chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-rosetta?ref=main
+  values:
+    - fullnameOverride: "rosetta-online"
+    - image:
+        tag: {{ .Values.testnet.tag }}
+    - rosetta:
+        logLevel: Info
+        graphqlURL: http://node-0-graphql:3085/graphql
+        pgConnectionString: postgres://{{ .Values.database.username | fetchSecretValue }}:{{ .Values.database.password | fetchSecretValue }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.database }}
+    - ingress:
+        enabled: true
+        className: "alb"
+        annotations:
+          alb.ingress.kubernetes.io/scheme: internet-facing
+          alb.ingress.kubernetes.io/target-type: ip
+          alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+          nginx.ingress.kubernetes.io/success-codes: 200,201,307
+          alb.ingress.kubernetes.io/backend-protocol: HTTP
+          external-dns.alpha.kubernetes.io/hostname: rosetta-online-{{ .Values.testnet.name }}.minaprotocol.network
+          alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:673156464838:certificate/a24a4c70-3ab5-4057-a105-65508d75f65f
+          alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+          alb.ingress.kubernetes.io/group.name: partners
+          alb.ingress.kubernetes.io/tags: BillingCode=partners
+        hosts:
+          - host: rosetta-online-{{ .Values.testnet.name }}.minaprotocol.network
+            paths:
+              - path: "/*"
+                pathType: ImplementationSpecific
+- name: "rosetta-offline"
+  namespace: "{{ .Values.testnet.name }}"
+  chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-rosetta?ref=main
+  values:
+    - fullnameOverride: "rosetta-offline"
+    - image:
+        tag: {{ .Values.testnet.tag }}
+    - rosetta:
+        logLevel: Info
+        graphqlURL: http://node-0-graphql:3085/graphql
+        pgConnectionString: postgres://{{ .Values.database.username | fetchSecretValue }}:{{ .Values.database.password | fetchSecretValue }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.database }}
+    - service:
+        port: 3088
+    - ingress:
+        enabled: true
+        className: "alb"
+        annotations:
+          alb.ingress.kubernetes.io/scheme: internet-facing
+          alb.ingress.kubernetes.io/target-type: ip
+          alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+          nginx.ingress.kubernetes.io/success-codes: 200,201,307
+          alb.ingress.kubernetes.io/backend-protocol: HTTP
+          external-dns.alpha.kubernetes.io/hostname: rosetta-offline-{{ .Values.testnet.name }}.minaprotocol.network
+          alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:673156464838:certificate/5432af1a-b331-4970-abf4-c168c5e69784
+          alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+          alb.ingress.kubernetes.io/group.name: partners
+          alb.ingress.kubernetes.io/tags: BillingCode=partners
+        hosts:
+          - host: rosetta-offline-{{ .Values.testnet.name }}.minaprotocol.network
+            paths:
+              - path: "/*"
+                pathType: ImplementationSpecific
