@@ -3,7 +3,7 @@ environments:
   default:
     values:
       - testnet:
-          name: o1labs-speedrun-berkeley
+          name: o1labs-speedrun-hf-rc-1
           platform: sandbox
           repository: gcr.io/o1labs-192920/mina-rosetta
           tag: 1.4.0beta2-testing-hard-fork-internal-e65c8bc-focal
@@ -12,7 +12,7 @@ environments:
           port: 5432
           username: ref+awssecrets://partners/qanet/archive?region=us-west-2#/username
           password: ref+awssecrets://partners/qanet/archive?region=us-west-2#/password
-          database: archive
+          database: archive_balances_migrated
       - github:
           accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
 ---

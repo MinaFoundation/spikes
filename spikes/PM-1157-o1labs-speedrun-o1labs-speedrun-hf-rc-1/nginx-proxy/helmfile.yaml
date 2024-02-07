@@ -9,7 +9,7 @@ environments:
   default:
     values:
       - network:
-          name: o1labs-speedrun-berkeley
+          name: o1labs-speedrun-hf-rc-1
           platform: sandbox
 ---
 releases:

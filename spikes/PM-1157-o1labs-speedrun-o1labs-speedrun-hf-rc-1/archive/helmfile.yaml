@@ -11,7 +11,7 @@ environments:
           password: ref+awssecrets://partners/qanet/archive?region=us-west-2#/password
           database: archive
       - testnet:
-          name: o1labs-speedrun-berkeley
+          name: o1labs-speedrun-hf-rc-1
           platform: sandbox
           image: gcr.io/o1labs-192920/mina-archive:1.4.0beta2-testing-hard-fork-internal-e65c8bc-bullseye
       - github:
@@ -31,15 +31,13 @@ releases:
           enabled: true
         dumpCronjob:
           enabled: true
-          s3Bucket: 673156464838-mina-archive-node-backups/o1labs-speedrun-berkeley
+          s3Bucket: 673156464838-mina-archive-node-backups/o1labs-speedrun-hf-rc-1
         missingBlocksGuardian:
           enabled: true
           precomputedBlocksURL: https://storage.googleapis.com/mina_network_block_data
-          waitTime: 1800  # 30 minutes
-        bootstrapDB: true
-        initFromDump:
-          enabled: true
-          archiveDumpURL: http://673156464838-mina-archive-node-backups.s3-website-us-west-2.amazonaws.com/o1labs-speedrun-berkeley
+          # waitTime: 1800  # 30 minutes
+          waitTime: 15  # 15 seconds
+        bootstrapDB: false
         image: {{ .Values.testnet.image }}
         enablePostgresDB: true
     - podAnnotations:
