@@ -1,0 +1,60 @@
+---
+environments:
+  default:
+    values:
+      - testnet:
+          name: o1labs-berkeley-upgrade
+          platform: sandbox
+          repository: gcr.io/o1labs-192920/mina-rosetta
+          tag: 2.0.0berkeley-rc1-joaosreis-rosetta-memoize-graphql-genesis-e565a4b-bullseye
+      - database:
+          host: archive-postgresql
+          port: 5432
+          username: ref+awssecrets://partners/qanet/archive?region=us-west-2#/username
+          password: ref+awssecrets://partners/qanet/archive?region=us-west-2#/password
+          database: archive
+      - github:
+          accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
+---
+releases:
+- name: "rosetta-online"
+  namespace: "{{ .Values.testnet.name }}"
+  chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-rosetta?ref=main
+  values:
+    - replicaCount: 1
+    - fullnameOverride: "rosetta-online"
+    - image:
+        tag: {{ .Values.testnet.tag }}
+    - rosetta:
+        logLevel: Debug
+        graphqlURL: http://nginx-proxy:8081/graphql
+        # graphqlURL: https://{{ .Values.testnet.name }}.minaprotocol.network/graphql
+        pgConnectionString: postgres://{{ .Values.database.username | fetchSecretValue }}:{{ .Values.database.password | fetchSecretValue }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.database }}
+        pgDataInterval: 30
+        maxDBPoolSize: 80
+    - ingress:
+        enabled: true
+        className: "alb"
+        annotations:
+          alb.ingress.kubernetes.io/scheme: internet-facing
+          alb.ingress.kubernetes.io/target-type: ip
+          alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+          nginx.ingress.kubernetes.io/success-codes: 200,201,307
+          alb.ingress.kubernetes.io/backend-protocol: HTTP
+          external-dns.alpha.kubernetes.io/hostname: rosetta-online-{{ .Values.testnet.name }}.minaprotocol.network
+          alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:673156464838:certificate/a24a4c70-3ab5-4057-a105-65508d75f65f
+          alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+          alb.ingress.kubernetes.io/group.name: partners
+          alb.ingress.kubernetes.io/tags: BillingCode=partners
+        hosts:
+          - host: rosetta-online-{{ .Values.testnet.name }}.minaprotocol.network
+            paths:
+              - path: "/*"
+                pathType: ImplementationSpecific
+    - resources:
+        requests:
+          memory: 1Gi
+          cpu: 500m
+        limits:
+          memory: 2Gi
+          cpu: 1

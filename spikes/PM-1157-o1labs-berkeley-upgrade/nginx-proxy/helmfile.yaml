@@ -1,0 +1,102 @@
+---
+repositories:
+- name: bitnamicharts
+  url: registry-1.docker.io/bitnamicharts
+  oci: true
+
+---
+environments:
+  default:
+    values:
+      - network:
+          name: o1labs-berkeley-upgrade
+          platform: sandbox
+---
+releases:
+  - name: nginx-proxy
+    namespace: "{{ .Values.network.name }}"
+    chart: bitnamicharts/nginx
+    version: 15.1.2
+    values:
+      - ingress:
+          enabled: true
+          ingressClassName: alb
+          annotations:
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/preserve-client-ip: "true"
+            alb.ingress.kubernetes.io/backend-protocol: HTTP
+            alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:673156464838:certificate/a24a4c70-3ab5-4057-a105-65508d75f65f
+            alb.ingress.kubernetes.io/group.name: {{ .Values.network.platform }}
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+            alb.ingress.kubernetes.io/ssl-redirect: '443'
+            external-dns.alpha.kubernetes.io/hostname: "{{ .Values.network.name }}.minaprotocol.network"
+            alb.ingress.kubernetes.io/tags: BillingCode={{ .Values.network.platform }}
+          hostname: "{{ .Values.network.name }}.minaprotocol.network"
+          path: '/*'
+      - service:
+          type: ClusterIP
+          ports:
+            http: 8081
+      - containerPorts:
+          http: 8081
+      - serverBlock: |-
+          upstream backend_servers {
+            least_conn;
+            server node-0-graphql:3085;
+            server node-1-graphql:3085;
+          }
+
+          server {
+            resolver kube-dns.kube-system.svc.cluster.local valid=10s;
+            server_name     {{ .Values.network.name }}.minaprotocol.network;
+            listen 8081;
+            access_log      /dev/stdout;
+            error_log       /dev/stdout debug;
+
+            sub_filter_types *;
+            sub_filter '"http://"' '(window.location.protocol == "https:" ? "https://" : "http://")';
+            sub_filter '"ws://"' '(window.location.protocol == "https:" ? "wss://" : "ws://")';
+
+            proxy_http_version 1.1;
+            proxy_read_timeout 300s;
+            proxy_connect_timeout 75s;
+            proxy_send_timeout 300s;
+            proxy_buffering off;
+            proxy_cache off;
+
+            location ~ ^/(graphql.*) {
+
+              if ($request_method = OPTIONS ) {
+                add_header 'Access-Control-Allow-Origin' 'https://custom.minascan.io' always;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+                add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain charset=UTF-8';
+                add_header 'Content-Length' 0;
+                return 204;
+              }
+
+              proxy_pass http://backend_servers;
+              add_header X-Backend-Server $upstream_http_server always;
+              add_header 'Access-Control-Allow-Origin' 'https://custom.minascan.io' always;
+              add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+              add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
+            }
+
+            location ~ ^/(node)-(\d+)/(.*) {
+              proxy_pass http://$1-$2-graphql.{{ .Values.network.name }}.svc.cluster.local:3085/$3;
+            }
+
+            location / {
+              rewrite ^ https://custom.minascan.io/custom/home?network=https%3A%2F%2F{{ .Values.network.name }}.minaprotocol.network%2Fgraphql permanent;
+            }
+
+          }
+      - resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
