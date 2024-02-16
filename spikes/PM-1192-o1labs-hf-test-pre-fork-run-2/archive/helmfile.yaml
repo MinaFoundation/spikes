@@ -1,0 +1,72 @@
+---
+repositories:
+- name: bitnami
+  url: https://charts.bitnami.com/bitnami
+
+environments:
+  default:
+    values:
+      - database:
+          username: ref+awssecrets://partners/qanet/archive?region=us-west-2#/username
+          password: ref+awssecrets://partners/qanet/archive?region=us-west-2#/password
+          database: archive
+      - testnet:
+          name: o1labs-hf-test-pre-fork-run-2
+          platform: sandbox
+          image: gcr.io/o1labs-192920/mina-archive:1.4.0beta2-testing-hard-fork-internal-72cb1a8-focal
+      - github:
+          accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
+---
+releases:
+- name: archive
+  namespace: "{{ .Values.testnet.name }}"
+  chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-archive?ref=main
+  version: 2.0.0
+  values:
+    - archive:
+        global:
+          storageClass: ebs-gp3-encrypted
+        testnet: {{ .Values.testnet.name }}
+        metrics:
+          enabled: true
+        dumpCronjob:
+          enabled: true
+          s3Bucket: 673156464838-mina-archive-node-backups/o1labs-hf-test-pre-fork-run-2
+        missingBlocksGuardian:
+          enabled: true
+          precomputedBlocksURL: https://storage.googleapis.com/mina_network_block_data
+          # waitTime: 1800  # 30 minutes
+          waitTime: 15  # 15 seconds
+        bootstrapDB: false
+        image: {{ .Values.testnet.image }}
+        enablePostgresDB: true
+    - podAnnotations:
+        karpenter.sh/do-not-evict: "true"
+    - serviceAccount:
+        annotations:
+          eks.amazonaws.com/role-arn: arn:aws:iam::673156464838:role/MinaNodesS3_{{ .Values.testnet.platform }}
+    - resource:
+        memoryRequest: 4Gi
+        cpuRequest: 2
+        memoryLimit: 4Gi
+        cpuLimit: 2
+    - postgresql:
+        auth:
+          username: {{ .Values.database.username }}
+          password: {{ .Values.database.password | fetchSecretValue }}
+          database: {{ .Values.database.database }}
+        global:
+          storageClass: ebs-gp3-encrypted
+        primary:
+          annotations:
+            karpenter.sh/do-not-evict: "true"
+          persistence:
+            enabled: true
+            size: 10Gi
+          resources:
+            limits:
+              memory: 8Gi
+              cpu: "2"
+            requests:
+              memory: 4Gi
+              cpu: "1"
