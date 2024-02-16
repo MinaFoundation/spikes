@@ -1,0 +1,72 @@
+---
+environments:
+  default:
+    values:
+      - github:
+          accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
+      - testnet:
+          name: o1labs-hf-test-pre-fork-run-2
+          platform: sandbox
+          image: gcr.io/o1labs-192920/mina-daemon:1.4.0beta2-testing-hard-fork-internal-72cb1a8-focal-devnet
+      - keys:
+          libp2pPassword: ref+awssecrets://partners/qanet/node-0?region=us-west-2#/libp2p-password
+          discoveryLibp2p: ref+awssecrets://partners/qanet/node-0?region=us-west-2#/libp2p
+          discoveryLibp2pPeerid: ref+awssecrets://partners/qanet/node-0?region=us-west-2#/libp2p.peerid
+          walletPassword: ref+awssecrets://partners/qanet/node-0?region=us-west-2#/key-password
+          walletKey: ref+awssecrets://partners/qanet/node-0?region=us-west-2#/key
+          walletPub: ref+awssecrets://partners/qanet/node-0?region=us-west-2#/key.pub
+      - seeds:
+          seed0Libp2pPeerid: ref+awssecrets://partners/qanet/seed-0?region=us-west-2#/libp2p.peerid
+          seed1Libp2pPeerid: ref+awssecrets://partners/qanet/seed-1?region=us-west-2#/libp2p.peerid
+---
+releases:
+- name: "node-0"
+  namespace: "{{ .Values.testnet.name }}"
+  chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-daemon?ref=main
+  values:
+    - deployment:
+        testnet: o1labs-hf-test-pre-fork-run-2
+        name: "{{ .Values.testnet.name }}-mina-node-0"
+        image: {{ .Values.testnet.image }}
+        customEntrypoint:
+          enabled: true
+          entrypoint: mina
+        peerListURL: https://storage.googleapis.com/o1labs-gitops-infrastructure/o1labs-hf-test-pre-fork-run-2/seed_list_o1labs_o1labs_hf_test_pre_fork_run_2.txt
+        genesisLedgerURL: https://storage.googleapis.com/o1labs-gitops-infrastructure/o1labs-hf-test-pre-fork-run-2/o1labs-hf-test-pre-fork-run-2-ledger.json
+    - podAnnotations:
+        karpenter.sh/do-not-evict: "true"
+    - node:
+        name: node-0
+        role: node
+        seedFlags: false
+        exposeGraphql: true
+        logLevel: Debug
+        filelogLevel: Debug
+        metrics:
+          enabled: true
+        libp2pKeys:
+          enabled: true
+          legacy: true
+        walletKeys:
+          enabled: true
+        enableFlooding: true
+        secrets:
+          libp2pPassword: {{ .Values.keys.libp2pPassword | fetchSecretValue | quote }}
+          discoveryLibp2p: {{ .Values.keys.discoveryLibp2p | fetchSecretValue | quote }}
+          discoveryLibp2pPeerid: {{ .Values.keys.discoveryLibp2pPeerid | fetchSecretValue }}
+          walletPassword: {{ .Values.keys.walletPassword | fetchSecretValue | quote }}
+          walletKey: {{ .Values.keys.walletKey | fetchSecretValue | quote }}
+          walletPub: {{ .Values.keys.walletPub | fetchSecretValue}}
+        archive:
+          enabled: true
+          address: "archive.{{ .Values.testnet.name }}.svc.cluster.local:3086"
+        extraEnvVars:
+          - name: RAYON_NUM_THREADS
+            value: "6"
+    - resources:
+        memoryRequest: 16Gi
+        cpuRequest: 4
+        memoryLimit: 20Gi
+        cpuLimit: 6
+    - healthcheck:
+        enabled: true

@@ -1,0 +1,29 @@
+---
+environments:
+  default:
+    values:
+      - testnet:
+          name: o1labs-hf-test-pre-fork-run-3
+          platform: sandbox
+      - github:
+          accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
+      - generator:
+          tag: 0.2.2-b21a4d2
+          senderPrivateKey: EKDoK9SLmN2DbEbZMTtGhoGf2HqFpUJMZk7Qo3ZP6ZYEaMH5b1LJ
+---
+releases:
+- name: "transactions-generator"
+  namespace: "{{ .Values.testnet.name }}"
+  chart: git::https://git:{{ .Values.github.accesstoken | fetchSecretValue }}@github.com/MinaFoundation/helm-charts.git@mina-transactions-generator?ref=main
+  values:
+    - fullnameOverride: transactions-generator
+    - image:
+        tag: "{{ .Values.generator.tag }}"
+    - generator:
+        minaGraphqlUrl: http://nginx-proxy:8081/graphql
+        senderPrivateKey: {{ .Values.generator.senderPrivateKey | fetchSecretValue }}
+        recipientWalletList:
+          - B62qmwgmbc1RCLk6G7g1NuvTWC85KJ3MP7mSywnxRB6pa4XGzd15U3B
+        transaction:
+          type: regular
+          interval: 10000

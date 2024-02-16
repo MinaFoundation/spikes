@@ -1,0 +1,44 @@
+{
+    "all_in_memory_enabled": false,
+    "coin_supported": false,
+    "compression_disabled": false,
+    "data": {
+        "active_reconciliation_concurrency": 16,
+        "balance_tracking_disabled": false,
+        "coin_tracking_disabled": false,
+        "end_conditions": {
+            "reconciliation_coverage": {
+                "coverage": 1,
+                "from_tip": true,
+                "tip": true
+            }
+        },
+        "ignore_reconciliation_error": false,
+        "inactive_discrepancy_search_disabled": false,
+        "inactive_reconciliation_concurrency": 4,
+        "inactive_reconciliation_frequency": 250,
+        "initial_balance_fetch_disabled": false,
+        "log_balance_changes": false,
+        "log_blocks": false,
+        "log_reconciliations": false,
+        "log_transactions": false,
+        "pruning_balance_disabled": false,
+        "pruning_block_disabled": false,
+        "reconciliation_disabled": false,
+        "reconciliation_drain_disabled": false
+    },
+    "error_stack_trace_disabled": false,
+    "http_timeout": 300,
+    "l0_in_memory_enabled": false,
+    "log_configuration": false,
+    "max_online_connections": 120,
+    "max_reorg_depth": 100,
+    "max_retries": 5,
+    "max_sync_concurrency": 64,
+    "network": {
+        "blockchain": "mina",
+        "network": "mainnet"
+    },
+    "online_url": "https://rosetta-online-mainnet.minaprotocol.network",
+    "tip_delay": 300
+}
