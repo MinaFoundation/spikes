@@ -3,12 +3,12 @@ environments:
   default:
     values:
       - testnet:
-          name: o1labs-berkeley-upgrade
+          name: o1labs-hf-test-post-fork-run-3
           platform: sandbox
       - github:
           accesstoken: ref+awssecrets://github?region=us-west-2#/access-token
       - generator:
-          tag: 0.2.2-b21a4d2
+          tag: mainnet-0.2.2-e01331e
           senderPrivateKey: EKESgEwkDryQ17ZK53bfvp87RQfPCVzb85sNvBU6T77vtVcDQbS4
 ---
 releases:
@@ -20,7 +20,7 @@ releases:
     - image:
         tag: "{{ .Values.generator.tag }}"
     - generator:
-        minaGraphqlUrl: https://{{ .Values.testnet.name }}.minaprotocol.network/graphql
+        minaGraphqlUrl: http://nginx-proxy:8081/graphql
         senderPrivateKey: {{ .Values.generator.senderPrivateKey | fetchSecretValue }}
         recipientWalletList:
           - B62qmwgmbc1RCLk6G7g1NuvTWC85KJ3MP7mSywnxRB6pa4XGzd15U3B
@@ -67,4 +67,4 @@ releases:
           - B62qqvU3AFsTijN6v4vPYqpooYKnp35dTx2Wnkr9zm5Cs12GVLG3e83
         transaction:
           type: mixed
-          interval: 120000
+          interval: 60000
