@@ -1,0 +1,18 @@
+apiVersion: v1
+data:
+  initdb.cql: |-
+    CREATE KEYSPACE uptime_service_backend_staging_berkeley
+    WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3};
+kind: ConfigMap
+metadata:
+  annotations:
+  labels:
+    app.kubernetes.io/component: cassandra-exporter
+    app.kubernetes.io/instance: uptime-service-cassandra
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: cassandra
+    app.kubernetes.io/part-of: cassandra
+    app.kubernetes.io/version: 4.1.4
+    helm.sh/chart: cassandra-10.11.2
+  name: uptime-service-cassandra-initdb
+  namespace: berkeley
