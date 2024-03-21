@@ -15,4 +15,4 @@ metadata:
     app.kubernetes.io/version: 4.1.4
     helm.sh/chart: cassandra-10.11.2
   name: uptime-service-cassandra-initdb
-  namespace: berkeley
+  namespace: cassandra

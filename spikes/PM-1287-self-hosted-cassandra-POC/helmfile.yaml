@@ -30,3 +30,17 @@ releases:
     - dbUser:
         password: aaaa
     - replicaCount: 3
+    - persistence:
+        storageClass: ebs-gp3-encrypted
+    - jvm:
+        maxHeapSize: 4G
+        newHeapSize: 1G
+    - resources:
+        limits:
+          cpu: 2
+          memory: 12Gi
+        requests:
+          cpu: 1
+          memory: 10Gi
+    - podAnnotations:
+        karpenter.sh/do-not-evict: "true"
