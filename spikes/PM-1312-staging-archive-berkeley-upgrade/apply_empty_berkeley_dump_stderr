@@ -1,0 +1,9 @@
+zkapp_tables.sql: No such file or directory
+ERROR:  relation "zkapp_fee_payer_body" does not exist
+ERROR:  relation "zkapp_permissions" does not exist
+ERROR:  relation "accounts_accessed" does not exist
+ERROR:  relation "accounts_accessed" does not exist
+ERROR:  relation "zkapp_commands" does not exist
+ERROR:  relation "blocks_zkapp_commands" does not exist
+ERROR:  relation "blocks_zkapp_commands" does not exist
+ERROR:  relation "blocks_zkapp_commands" does not exist

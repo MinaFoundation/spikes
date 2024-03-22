@@ -1,0 +1,81 @@
+## About docs
+
+[Preparation]
+
+From "Mainnet to Berkeley Archive Migration" page everything up until the paragraph "Migration process" can go to the "Planning the Archive Migration" page.
+
+Overview -> I would rather see mentioned the step action and than the tool that is used and then provide context. The next paragraph could be the installation
+
+Requirements -> Should be at the start of the page.
+                The first two bullet points could go under one
+                First mention the hard requirement and lastly the optional one
+
+Prerequisites are all optional? They are kind of the same as a requirement. By definition prerequisite is a "Required or necessary as a prior condition"
+
+Maybe the Requirements and Prerequisite can be united
+
+IMO the validation of the mainnet database should be a hard requirement before moving forward, also some instructions here would be great.
+
+Known issues is under the Prerequisite header while it should be on the same level
+
+Maybe the last section could be called "Next Step" and the text can be a bit more rich in detail and conclusive about the whole page
+
+[Migration]
+
+Give wget example for mainnet genesis ledger
+
+Berkeley database schema files -> No need for example because that excludes the Archive/Rosetta Docker option, just mention the path and schema files needed for each option
+Which one is it from the example? There are two sql files. Both? According to my tests create_schema.sql should do everything zkapp_tables.sql does
+zkapp_tables.sql is imported by the other script so it is important to have both and to have them both in the same directory. And to run create_schema.sql
+
+Migration Process -> Stage 1 -> Inputs -> what does empty berkeley schema mean? The schema file? The database with the berkeley schema and no data?
+
+Migration Process -> Stage 1 -> Phase 1 ->  The code could be formatted a bit better (every flag on a different line for visibility)
+                                            the where statement is a bit unclear (proposition "where the --network flag defines the prefix for precomputed blocks")
+
+Stage 2 -> Inputs -> I do not get "migrated berkeley schema" to my knowledge this is incorrect. A database schema is a logical representation of data that shows how the data in a database should be stored
+
+I think for the three stages of the, because all of the stages are similar in phases and steps, we could include it once and refer to the asimilarities in each stage
+
+How to verify a successful migration -> Some commands and a bit more detail would be awesome
+
+Notes on migration approach ->  I personally don't like the name of the section, I would expect "Tips and tricks" and a section at the start that recommends using them
+                                don't know what "to prime the cronjob" means, google didn't help
+                                Why mention google cloud? Most of the people don't have a cloud environment or if they do it can be different. It is not tied to the Migration
+
+FAQ -> Isn't "Migrated database missing pending blocks" the same as "How to migrate Mainnet pending blocks" ?
+       "How to start replayer migration from latest checkpoint" don't we need to know this to complete Incremental migration?
+
+[Remarks]
+
+It seems that I need two database instances, one running mainnet archive database and one fresh with the berkeley schema. I think this should be very clear for the start of the document
+
+From the migration process is Stage 2 (Incremental migration) executed more than once? Until fork block is announced? How will that happen?
+
+[Simplified berkeley migration script]
+
+Not quite sure on what database should I perform this. After reading the readme some I realize it doesn't really matter because we create new databases in a PSQL cluster but it caused some confusion in me.
+
+Script does not output help message, it fails if dependencies are not present.
+
+Script does not save stderr, it just saves stdout.
+
+maybe check if the flags have expected format (I messed up and provided a path for network)
+
+[Actual local run with AWS RDS database]
+
+Provided docker image does not support mentioned flags (gcr.io/o1labs-192920/mina-archive-berkeley-archive-migration:1.0.0umt-tooling)
+Built one from berkeley branch, still doesn't know the flag
+Tried the simplified script docker, still doesn't know the flag
+
+❯ docker logs berkeley-migration
+Error parsing command line:
+
+  unknown flag --mainnet-blocks-bucket
+
+For usage information, run
+
+  mina-berkeley-migration -help
+
+Resolved -> It is called "blocks-bucket" not "mainnet-blocks-bucket"
+
