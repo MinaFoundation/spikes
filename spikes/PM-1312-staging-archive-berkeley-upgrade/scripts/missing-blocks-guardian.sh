@@ -20,41 +20,49 @@ usage() {
     echo "  $0 daemon"
 }
 
+trap "echo $'\nRecieved termination signal. Exiting the script\n'; exit 1" 1 2 3
+
 if [ -z "$DB_USERNAME" ]; then
-    echo "The DB_USERNAME environment variable is not set or is empty."
+    echo $'[ERROR] The DB_USERNAME environment variable is not set or is empty. Exiting the script'
     exit 1
 fi
 
 if [ -z "$PGPASSWORD" ]; then
-    echo "The PGPASSWORD environment variable is not set or is empty."
+    echo $'[ERROR] The PGPASSWORD environment variable is not set or is empty. Exiting the script'             
     exit 1
 fi
 
 if [ -z "$DB_HOST" ]; then
-    echo "The DB_HOST environment variable is not set or is empty."
+    echo $'[ERROR] The DB_HOST environment variable is not set or is empty. Exiting the script'                
     exit 1
 fi
 
 if [ -z "$DB_PORT" ]; then
-    echo "The DB_PORT environment variable is not set or is empty."
+    echo $'[ERROR] The DB_PORT environment variable is not set or is empty. Exiting the script'                
     exit 1
 fi
 
 if [ -z "$DB_NAME" ]; then
-    echo "The DB_NAME environment variable is not set or is empty."
+    echo $'[ERROR] The DB_NAME environment variable is not set or is empty. Exiting the script'                
     exit 1
 fi
 
 if [ -z "$PRECOMPUTED_BLOCKS_URL" ]; then
-    echo "The PRECOMPUTED_BLOCKS_URL environment variable is not set or is empty."
+    echo $'[ERROR] The PRECOMPUTED_BLOCKS_URL environment variable is not set or is empty. Exiting the script'  
     exit 1
 fi
 
 if [ -z "$MISSING_BLOCKS_AUDITOR" ]; then
-    echo -e "The MISSING_BLOCKS_AUDITOR environment variable is not set or is empty. Defaulting to \033[31mmissing-block-auditor\e[m."
-    MISSING_BLOCKS_AUDITOR=missing-blocks-auditor
+    echo -e "[INFO] The MISSING_BLOCKS_AUDITOR environment variable is not set or is empty. Defaulting to \033[31mmina-missing-block-auditor\e[m."
+    MISSING_BLOCKS_AUDITOR=mina-missing-blocks-auditor
 fi
 
+if [ -z "$TIMEOUT" ]; then
+    echo -e "[INFO] The TIMEOUT environment variable is not set or is empty. Defaulting to \033[31m600\e[m."
+    TIMEOUT=600
+fi
+
+echo "[INFO] Using connection string postgres://${DB_USERNAME}:<your_password>@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 PG_CONN=postgres://${DB_USERNAME}:${PGPASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
 
 jq_parent_json() {
@@ -71,7 +79,7 @@ populate_db() {
 }
 
 download_block() {
-    echo "Downloading ${1} block"
+    echo "[INFO] Downloading ${1} block"
     curl -sO "${PRECOMPUTED_BLOCKS_URL}/${1}"
 }
 
@@ -79,7 +87,7 @@ HASH='map(select(.metadata.parent_hash != null and .metadata.parent_height != nu
 # Bootstrap finds every missing state hash in the database and imports them from the o1labs bucket of .json blocks
 bootstrap() {
   echo "[BOOTSTRAP] Top 10 blocks before bootstrapping the archiveDB:"
-  psql "${PG_CONN}" -c "SELECT state_hash,height FROM blocks ORDER BY height DESC LIMIT 10"
+  psql -b -e "${PG_CONN}" -c "SELECT state_hash,height FROM blocks ORDER BY height DESC LIMIT 10"
   echo "[BOOTSTRAP] Restoring blocks individually from ${PRECOMPUTED_BLOCKS_URL}..."
 
   until [[ "$PARENT" == "null" ]] ; do
@@ -90,11 +98,13 @@ bootstrap() {
   done
 
   echo "[BOOTSTRAP] Top 10 blocks in bootstrapped archiveDB:"
-  psql "${PG_CONN}" -c "SELECT state_hash,height FROM blocks ORDER BY height DESC LIMIT 10"
-  echo "[BOOTSTRAP] This Archive node is synced with no missing blocks back to genesis!"
-
-  echo "[BOOTSTRAP] Checking again in 60 minutes..."
-  sleep 3000
+  psql -b -e "${PG_CONN}" -c "SELECT state_hash,height FROM blocks ORDER BY height DESC LIMIT 10"
+  echo "[RESOLUTION] This Archive node is synced with no missing blocks back to genesis!"
+  
+  if [ $1 = false ]; then
+    echo "[INFO] Checking again in $((6*${TIMEOUT}/60)) minutes..."
+    sleep $((6*${TIMEOUT}))
+  fi
 }
 
 main() {
@@ -118,29 +128,40 @@ main() {
   # Wait until there is a block missing
   PARENT=null
   case "$subcommand" in
+
     audit)
-      echo "Running in audit mode"
+      echo "[INFO] Running in audit mode"
       PARENT="$($MISSING_BLOCKS_AUDITOR --archive-uri $PG_CONN | jq_parent_hash)"
       echo "[BOOTSTRAP] $($MISSING_BLOCKS_AUDITOR --archive-uri $PG_CONN | jq -rs .[].message)"
       [[ "$PARENT" != "null" ]] && echo "Some blocks are missing" && exit 0
       echo "[RESOLUTION] This Archive node is synced with no missing blocks back to genesis!"
       exit 0
       ;;
+
     single-run)
-      echo "Running in single-run mode"
+      echo "[INFO] Running in single-run mode"
+      SINGLE_RUN=true
       PARENT="$($MISSING_BLOCKS_AUDITOR --archive-uri $PG_CONN | jq_parent_hash)"
       echo "[BOOTSTRAP] $($MISSING_BLOCKS_AUDITOR --archive-uri $PG_CONN | jq -rs .[].message)"
-      [[ "$PARENT" != "null" ]] && echo "[BOOTSTRAP] Some blocks are missing, moving to recovery logic..." && bootstrap
+      [[ "$PARENT" != "null" ]] && echo "[BOOTSTRAP] Some blocks are missing, moving to recovery logic..." && bootstrap $SINGLE_RUN
+      echo "[RESOLUTION] The bootstrap process finished, the Archive node should be synced with no missing blocks! Rerun the script in audit mode to be sure."
+      exit 0
       ;; 
+
     daemon)
-      echo "Running in daemon mode"
+      echo "[INFO] Running in daemon mode"
+      SINGLE_RUN=false
       while true; do # Test once every 10 minutes forever, take an hour off when bootstrap completes
         PARENT="$($MISSING_BLOCKS_AUDITOR --archive-uri $PG_CONN | jq_parent_hash)"
         echo "[BOOTSTRAP] $($MISSING_BLOCKS_AUDITOR --archive-uri $PG_CONN | jq -rs .[].message)"
-        [[ "$PARENT" != "null" ]] && echo "[BOOTSTRAP] Some blocks are missing, moving to recovery logic..." && bootstrap
-        sleep 600 # Wait for the daemon to catchup and start downloading new blocks
+        if [[ "$PARENT" != "null" ]]; then
+          echo "[BOOTSTRAP] Some blocks are missing, moving to recovery logic..." && bootstrap $SINGLE_RUN
+        else
+          echo "[INFO] Waiting for $((${TIMEOUT}/60)) minutes"
+          sleep $TIMEOUT # Wait for the daemon to catchup and start downloading new blocks
+        fi
       done
-      echo "[RESOLUTION] This Archive node is synced with no missing blocks back to genesis!"
+      exit 0
       ;;
     *)
       usage
